@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ################################################################################
-# VM Health Check Script
+# VM Health Check Script - FIXED VERSION
 # Description: Checks the health of a virtual machine by analyzing CPU, disk
 #              space, memory, and other system parameters.
 # Usage: ./vm-health-check.sh [--explain]
@@ -36,23 +36,23 @@ print_status() {
     case $status in
         "HEALTHY")
             echo -e "${GREEN}✓${NC} $message"
-            DETAILED_REPORT+="$(date '+%Y-%m-%d %H:%M:%S') - ${GREEN}HEALTHY${NC}: $message\n"
+            DETAILED_REPORT+="$(date '+%Y-%m-%d %H:%M:%S') - HEALTHY: $message\n"
             ;;
         "WARNING")
             echo -e "${YELLOW}⚠${NC} $message"
-            DETAILED_REPORT+="$(date '+%Y-%m-%d %H:%M:%S') - ${YELLOW}WARNING${NC}: $message\n"
+            DETAILED_REPORT+="$(date '+%Y-%m-%d %H:%M:%S') - WARNING: $message\n"
             if [ "$OVERALL_STATUS" = "HEALTHY" ]; then
                 OVERALL_STATUS="WARNING"
             fi
             ;;
         "CRITICAL")
             echo -e "${RED}✗${NC} $message"
-            DETAILED_REPORT+="$(date '+%Y-%m-%d %H:%M:%S') - ${RED}CRITICAL${NC}: $message\n"
+            DETAILED_REPORT+="$(date '+%Y-%m-%d %H:%M:%S') - CRITICAL: $message\n"
             OVERALL_STATUS="CRITICAL"
             ;;
         "INFO")
             echo -e "${BLUE}ℹ${NC} $message"
-            DETAILED_REPORT+="$(date '+%Y-%m-%d %H:%M:%S') - ${BLUE}INFO${NC}: $message\n"
+            DETAILED_REPORT+="$(date '+%Y-%m-%d %H:%M:%S') - INFO: $message\n"
             ;;
     esac
 }
@@ -61,7 +61,7 @@ print_status() {
 # Function: Check CPU Usage
 ################################################################################
 check_cpu() {
-    local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print int($2)}')
+    local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print int($2 + $4)}')
     
     if [ -z "$cpu_usage" ]; then
         cpu_usage=$(ps aux | awk 'BEGIN {sum=0} {sum+=$3} END {print int(sum)}')
@@ -81,8 +81,8 @@ check_cpu() {
 ################################################################################
 check_memory() {
     local mem_info=$(free | grep Mem)
-    local mem_total=$(echo "$mem_info" | awk '{print $2}')
-    local mem_used=$(echo "$mem_info" | awk '{print $3}')
+    local mem_total=$(echo "$mem_info" | awk '{print int($2/1024)}')
+    local mem_used=$(echo "$mem_info" | awk '{print int($3/1024)}')
     local mem_percentage=$((mem_used * 100 / mem_total))
     
     if [ "$mem_percentage" -ge "$MEMORY_THRESHOLD" ]; then
@@ -99,7 +99,7 @@ check_memory() {
 ################################################################################
 check_disk() {
     local disk_info=$(df -h / | tail -1)
-    local disk_usage=$(echo "$disk_info" | awk '{print $5}' | sed 's/%//')
+    local disk_usage=$(echo "$disk_info" | awk '{print int($5)}')
     local disk_available=$(echo "$disk_info" | awk '{print $4}')
     local disk_total=$(echo "$disk_info" | awk '{print $2}')
     
@@ -116,7 +116,7 @@ check_disk() {
 # Function: Check System Load
 ################################################################################
 check_load() {
-    local load_avg=$(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}')
+    local load_avg=$(cat /proc/loadavg | awk '{print $1}')
     local load_avg_int=$(printf "%.0f" "$load_avg")
     local cpu_count=$(nproc)
     
@@ -147,7 +147,7 @@ check_processes() {
 # Function: Check System Uptime
 ################################################################################
 check_uptime() {
-    local uptime_seconds=$(cat /proc/uptime | awk '{print $1}')
+    local uptime_seconds=$(cat /proc/uptime | awk '{print int($1)}')
     local uptime_days=$((uptime_seconds / 86400))
     local uptime_hours=$(((uptime_seconds % 86400) / 3600))
     
